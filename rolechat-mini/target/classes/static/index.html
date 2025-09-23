@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RoleChat Mini</title>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 20px auto; }
+    #roles{ margin-bottom:10px; }
+    #chat{ border:1px solid #ddd; padding:10px; height:300px; overflow:auto; }
+    .msg{ margin:6px 0; }
+    .user{ color:#333; }
+    .ai{ color:#0a7; }
+  </style>
+</head>
+<body>
+<h2>角色扮演语音聊天（RoleChat Mini）</h2>
+<div>
+  <input id="q" placeholder="搜索角色，如 苏格拉底 / 哈利波特" style="width:70%" />
+  <button onclick="searchRoles()">搜索</button>
+</div>
+<div id="roles"></div>
+<hr/>
+<div>
+  <textarea id="input" rows="3" style="width:100%" placeholder="输入内容，或点击‘TTS播放’听AI声音"></textarea>
+  <div>
+    <button onclick="startStream()">开始对话(SSE)</button>
+    <button onclick="playTts()">TTS播放最后回复</button>
+  </div>
+</div>
+<div id="chat"></div>
+<audio id="player" controls style="width:100%; margin-top:10px;"></audio>
+<script>
+  let selectedRole = null;
+  let lastAiText = '';
+
+  async function searchRoles(){
+    const q = document.getElementById('q').value;
+    const res = await fetch(`/api/roles/search?q=${encodeURIComponent(q||'')}`);
+    const data = await res.json();
+    const box = document.getElementById('roles');
+    box.innerHTML = data.map(r=>`<button onclick="sel('${r.id}')">${r.title}</button>`).join(' ');
+  }
+  function sel(id){ selectedRole = id; alert('已选择角色:'+id); }
+  function addMsg(role, text){
+    const div=document.createElement('div');
+    div.className='msg '+role;
+    div.textContent=(role==='user'?'我: ':'AI: ')+text;
+    document.getElementById('chat').appendChild(div);
+    document.getElementById('chat').scrollTop=1e9;
+  }
+  function startStream(){
+    if(!selectedRole){ alert('请先选择角色'); return; }
+    const text = document.getElementById('input').value;
+    addMsg('user', text);
+    const es = new EventSourcePolyfill('/api/chat/stream', {
+      headers: { 'Content-Type':'application/json' },
+      payload: JSON.stringify({ roleId:selectedRole, userText:text, answerContentType:'text' }),
+      method: 'POST'
+    });
+    let acc = '';
+    es.onmessage = (e)=>{
+      try{
+        const obj = JSON.parse(e.data);
+        const delta = obj.choices?.[0]?.delta?.content || '';
+        if(delta){ acc += delta; }
+      }catch(err){ /* ignore */ }
+    };
+    es.onerror = ()=>{ es.close(); lastAiText = acc; addMsg('ai', acc); };
+  }
+
+  async function playTts(){
+    if(!lastAiText){ alert('暂无可播放文本'); return; }
+    const r = await fetch('/api/chat/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text:lastAiText })});
+    const j = await r.json();
+    const audio = document.getElementById('player');
+    audio.src = 'data:audio/mp3;base64,'+j.audioBase64;
+    audio.play();
+  }
+
+  // 简单 polyfill: 使用fetch+ReadableStream模拟SSE POST
+  class EventSourcePolyfill{
+    constructor(url, opt){
+      this.controller = new AbortController();
+      fetch(url, { method: opt.method||'POST', headers: opt.headers||{}, body: opt.payload||null, signal: this.controller.signal })
+        .then(async resp=>{
+          const reader = resp.body.getReader();
+          const dec = new TextDecoder();
+          while(true){
+            const {value, done} = await reader.read();
+            if(done) break;
+            const chunk = dec.decode(value, {stream:true});
+            chunk.split('\n\n').forEach(line=>{ if(line.startsWith('data:')) this.onmessage && this.onmessage({ data: line.slice(5).trim() }); });
+          }
+          this.onerror && this.onerror();
+        }).catch(err=>{ this.onerror && this.onerror(err); });
+    }
+    close(){ this.controller.abort(); }
+  }
+</script>
+</body>
+</html>

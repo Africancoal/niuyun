@@ -1,0 +1,26 @@
+server:
+  port: 9099
+
+app:
+  llm:
+    base-url: ${LLM_BASE_URL:https://api.deepseek.com}
+    api-key: ${LLM_API_KEY:replace_with_key}
+    model: ${LLM_MODEL:deepseek-chat}
+  asr:
+    base-url: ${ASR_BASE_URL:https://api.openai.com/v1}
+    api-key: ${ASR_API_KEY:replace_with_key}
+    model: ${ASR_MODEL:whisper-1}
+  tts:
+    base-url: ${TTS_BASE_URL:https://api.openai.com/v1}
+    api-key: ${TTS_API_KEY:replace_with_key}
+    model: ${TTS_MODEL:tts-1}
+    voice: ${TTS_VOICE:alloy}
+
+spring:
+  main:
+    banner-mode: console
+  application:
+    name: RoleChat Mini
+logging:
+  level:
+    root: INFO
