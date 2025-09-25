@@ -3,18 +3,26 @@ server:
 
 app:
   llm:
-    base-url: ${LLM_BASE_URL:https://api.deepseek.com}
-    api-key: ${LLM_API_KEY:replace_with_key}
-    model: ${LLM_MODEL:deepseek-chat}
+    # 通义千问（DashScope 兼容模式）作为主 LLM
+    base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${QWEN_API_KEY:sk-dac0c7100c3149f494704a0927066d90}
+    model: ${QWEN_MODEL:qwen-turbo}
+  # 通义千问大模型配置（备用）
+  qwen:
+    base-url: ${QWEN_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    api-key: ${QWEN_API_KEY:sk-dac0c7100c3149f494704a0927066d90}
+    model: ${QWEN_MODEL:qwen-turbo}
   asr:
-    base-url: ${ASR_BASE_URL:https://api.openai.com/v1}
-    api-key: ${ASR_API_KEY:replace_with_key}
-    model: ${ASR_MODEL:whisper-1}
+    # 使用七牛云语音识别服务
+    base-url: ${ASR_BASE_URL:https://openai.qiniu.com/v1/voice/asr}
+    api-key: ${ASR_API_KEY:sk-c01f7ea606f6047ac25cbbe74b5277d96e0d029ab56bb0ff3d6748fc68776859}
+    model: ${ASR_MODEL:asr}
   tts:
-    base-url: ${TTS_BASE_URL:https://api.openai.com/v1}
-    api-key: ${TTS_API_KEY:replace_with_key}
-    model: ${TTS_MODEL:tts-1}
-    voice: ${TTS_VOICE:alloy}
+    # 使用七牛云语音合成服务
+    base-url: ${TTS_BASE_URL:https://openai.qiniu.com/v1/voice/tts}
+    api-key: ${TTS_API_KEY:sk-c01f7ea606f6047ac25cbbe74b5277d96e0d029ab56bb0ff3d6748fc68776859}
+    model: ${TTS_MODEL:auto}
+    voice: ${TTS_VOICE:qiniu_zh_female_tmjxxy}
 
 spring:
   main:
