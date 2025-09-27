@@ -3,13 +3,15 @@ package com.example.rolechatmini.web;
 import com.example.rolechatmini.service.OpenAICompatClient;
 import com.example.rolechatmini.service.RoleCatalogService;
 import com.example.rolechatmini.service.SkillOrchestrator;
-import com.example.rolechatmini.web.dto.ChatDtos.ChatRequest;
 import com.example.rolechatmini.web.dto.ChatDtos.AsrUploadRequest;
-import com.example.rolechatmini.web.dto.ChatDtos.TtsRequest;
+import com.example.rolechatmini.web.dto.ChatDtos.ChatRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
@@ -42,9 +44,9 @@ public class ChatController {
         return java.util.Map.of("text", text);
     }
 
-    @PostMapping("/tts")
-    public Object tts(@RequestBody @Valid TtsRequest req) {
-        String b64 = openAI.ttsSynthesizeBase64(req.getText(), req.getVoice());
-        return java.util.Map.of("audioBase64", b64);
-    }
+//    @PostMapping("/tts")
+//    public Object tts(@RequestBody @Valid TtsRequest req) {
+//        String b64 = openAI.ttsSynthesizeBase64(req.getText(), req.getVoice());
+//        return java.util.Map.of("audioBase64", b64);
+//    }
 }

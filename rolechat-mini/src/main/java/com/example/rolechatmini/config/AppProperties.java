@@ -23,6 +23,8 @@ public class AppProperties {
     public static class Asr {
         private String baseUrl;
         private String apiKey;
+        private String apiSecret; // 讯飞需要apiSecret
+        private String appId; // 讯飞需要appId
         private String model;
     }
 
