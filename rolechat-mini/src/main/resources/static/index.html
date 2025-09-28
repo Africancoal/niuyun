@@ -375,6 +375,13 @@
         <button class="btn-secondary" onclick="clearChat()">
           <i class="fas fa-trash"></i> 清空聊天
         </button>
+        <!-- 添加录音按钮 -->
+        <button id="recordButton" onclick="startRecording()">
+          <i class="fas fa-microphone"></i> <span id="recordText">开始录音</span>
+        </button>
+        <button id="stopRecordButton" onclick="stopRecording()" disabled>
+          <i class="fas fa-stop"></i> 停止录音
+        </button>
       </div>
       
       <audio id="player" controls></audio>
@@ -538,7 +545,7 @@
               }
             }
           }
-        }catch(err){ 
+       }catch(err){
           console.error('Error parsing message:', err, 'Raw data:', e.data);
         }
       };
@@ -676,6 +683,148 @@
       const chat = document.getElementById('chat');
       chat.innerHTML = '<div class="welcome-message"><p>聊天记录已清空</p><p>开始新的对话吧！</p></div>';
       lastAiText = '';
+    }
+
+    // 语音录制相关变量（更新）
+    let audioContext;
+    let processor;
+    let audioStream;
+    let isRecording = false;
+    let pcmChunks = []; // 存储 PCM 数据块
+
+    // 开始录音（采集 PCM 16kHz 单声道）
+    async function startRecording() {
+      try {
+        audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // 创建 AudioContext，强制 16kHz 采样率
+        audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+
+        // 解决浏览器自动暂停问题
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume();
+        }
+
+        const source = audioContext.createMediaStreamSource(audioStream);
+        // 创建缓冲区大小为 4096 的处理器（约每 256ms 触发一次 onaudioprocess）
+        processor = audioContext.createScriptProcessor(4096, 1, 1); // 输入1声道，输出1声道
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        pcmChunks = [];
+        isRecording = true;
+
+        // 实时采集 PCM 数据
+        processor.onaudioprocess = (e) => {
+          if (!isRecording) return;
+          const inputData = e.inputBuffer.getChannelData(0); // 获取左声道 Float32Array
+          const pcmData = floatTo16BitPCM(inputData);
+          pcmChunks.push(pcmData);
+
+          console.log('Captured PCM chunk, size:', pcmData.length, 'bytes');
+
+          //  可选：实时发送分片（实现"边说边识别"）
+          // sendPcmChunk(pcmData);
+        };
+
+        document.getElementById('recordButton').disabled = true;
+        document.getElementById('stopRecordButton').disabled = false;
+        document.getElementById('recordText').textContent = '录音中...';
+        showMessage('开始录音（PCM 16kHz 单声道）...', 'system');
+        console.log('Started recording with AudioContext, sample rate:', audioContext.sampleRate);
+
+      } catch (error) {
+        console.error('录音错误:', error);
+        showMessage('录音失败: ' + error.message, 'system');
+      }
+    }
+
+    // Float32Array 转 Int16Array 再转 Uint8Array (PCM 16-bit)
+    function floatTo16BitPCM(float32Array) {
+      const buffer = new ArrayBuffer(float32Array.length * 2);
+      const view = new DataView(buffer);
+      for (let i = 0; i < float32Array.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        const val = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        view.setInt16(i * 2, val, true); // 小端字节序
+      }
+      return new Uint8Array(buffer);
+    }
+
+    // 停止录音
+    function stopRecording() {
+      if (!isRecording) return;
+
+      isRecording = false;
+
+      // 断开音频图
+      if (processor) {
+        processor.disconnect();
+      }
+      if (audioContext) {
+        audioContext.close(); // 关闭上下文
+      }
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+
+      document.getElementById('recordButton').disabled = false;
+      document.getElementById('stopRecordButton').disabled = true;
+      document.getElementById('recordText').textContent = '开始录音';
+      showMessage('录音已停止，正在识别...', 'system');
+
+      // 合并所有 PCM 数据块
+      const totalLength = pcmChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+      const mergedArray = new Uint8Array(totalLength);
+      let offset = 0;
+      pcmChunks.forEach(chunk => {
+        mergedArray.set(chunk, offset);
+        offset += chunk.length;
+      });
+
+      console.log('Total PCM data collected:', totalLength, 'bytes from', pcmChunks.length, 'chunks');
+
+      // 转为 Base64 发送
+      const base64String = btoa(String.fromCharCode.apply(null, mergedArray));
+      console.log('Base64 encoded PCM data length:', base64String.length);
+
+      // 发送到后端进行 ASR 识别
+      sendPcmToAsr(base64String);
+    }
+
+    async function sendPcmToAsr(pcmBase64) {
+      try {
+        const response = await fetch('/api/chat/asr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            audioBase64: pcmBase64,
+            format: 'pcm'  // 明确告诉后端是 PCM 数据
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('ASR Result:', result);
+
+        if (result.text && !result.text.includes('[ASR错误]')) {
+          document.getElementById('input').value = result.text;
+          showMessage('语音识别完成: ' + result.text, 'system');
+          // 可选：自动发送
+          startStream();
+        } else {
+          showMessage('语音识别失败: ' + result.text, 'system');
+        }
+      } catch (error) {
+        console.error('ASR Error:', error);
+        showMessage('语音识别请求失败: ' + error.message, 'system');
+      }
     }
 
     // 简单 polyfill: 使用fetch+ReadableStream模拟SSE POST

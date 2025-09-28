@@ -13,16 +13,18 @@ app:
     api-key: ${QWEN_API_KEY:sk-dac0c7100c3149f494704a0927066d90}
     model: ${QWEN_MODEL:qwen-turbo}
   asr:
-    # 使用七牛云语音识别服务
-    base-url: ${ASR_BASE_URL:https://openai.qiniu.com/v1/voice/asr}
-    api-key: ${ASR_API_KEY:sk-c01f7ea606f6047ac25cbbe74b5277d96e0d029ab56bb0ff3d6748fc68776859}
-    model: ${ASR_MODEL:asr}
+    # 使用讯飞语音识别服务
+    base-url: ${ASR_BASE_URL:https://iat-api.xfyun.cn/v2/iat}
+    api-key: ${ASR_API_KEY:ba7a8b9dd448043a5ebf0b96f7d002ad}
+    api-secret: ${ASR_API_SECRET:ODY0ZTNiNDBlZDkxNDc1ZDAxZDIzNmQ2}
+    app-id: ${ASR_APP_ID:76d7a061}
+    model: ${ASR_MODEL:iat}
   tts:
     # 使用七牛云语音合成服务
     base-url: ${TTS_BASE_URL:https://openai.qiniu.com/v1/voice/tts}
     api-key: ${TTS_API_KEY:sk-c01f7ea606f6047ac25cbbe74b5277d96e0d029ab56bb0ff3d6748fc68776859}
     model: ${TTS_MODEL:auto}
-    voice: ${TTS_VOICE:qiniu_zh_female_tmjxxy}
+    voice: ${TTS_VOICE:qiniu_zh_male_qinglin}
 
 spring:
   main:
